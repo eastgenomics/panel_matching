@@ -4,7 +4,7 @@
 
 import os
 
-gemini_path = os.path.join('C:/Users/Jay/Documents/Projects/Panel_matching/', 'gemini_panels_200522.txt')
+gemini_path = os.path.join('/home/Jay/projects/panel_matching/', 'gemini_panels_200522.txt')
 with open(gemini_path) as gemini_file:
     gemini_panels = gemini_file.readlines()
     gemini_dictionary = {}
@@ -22,7 +22,7 @@ with open(gemini_path) as gemini_file:
 import os
 
 panelapp_dictionary = {}
-panelapp_path = 'C:/Users/Jay/Documents/Projects/Panel_matching/200925_panelapp_dump'
+panelapp_path = '/home/Jay/projects/panel_matching/200925_panelapp_dump'
 for filename in os.listdir(panelapp_path):
     filepath = os.path.join(panelapp_path, filename)
     with open(filepath) as single_panel_object:
