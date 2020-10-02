@@ -48,7 +48,7 @@ def create_panelapp_dict():
 #The best match is the panel from the highest rank with the lowest value for (b).
 
 def create_mapped_dict():
-    import xlsxwriter
+    import csv
     gemini_dictionary = create_gemini_dict()
     panelapp_dictionary = create_panelapp_dict()
     
@@ -115,21 +115,21 @@ def create_mapped_dict():
                     best_match = list_of_ranks[i][0]
                     mapped_dictionary[gemini_panel] = best_match
     
-    #Create an excel file showing the mapping of panelapp to gemini panels, including the genes in each panel
-    workbook = xlsxwriter.workbook('mapping_output.xlsx')
-    worksheet = workbook.add_worksheet()
-    row = 0
-    col = 0
-    for key, value in mapped_dictionary.items():
-        worksheet.write(row, col, key)
-        worksheet.write(row, col+1, gemini_dictionary[key])
-        worksheet.write(row, col+2, value)
-        worksheet.write(row, col+3, panelapp_dictionary[key])
-        row += 1
+    #Create a csv file showing the mapping of panelapp to gemini panels
+    with open('mapping_output.csv','w') as file_object:
+        mapping_output = []
+        for key, value in mapped_dictionary.items():
+            row = {'Gemini panel':key, 'Gemini panel genes':gemini_dictionary[key], 'PanelApp panel':value, 'PanelApp panel genes':panelapp_dictionary[value]}
+            mapping_output.append(row)
+        fields = ['Gemini panel', 'Gemini panel genes', 'PanelApp panel', 'PanelApp panel genes']
+        output = csv.DictWriter(file_object, fieldnames = fields)
+        output.writeheader()
+        for entry in mapping_output:
+            output.writerow(entry)
     
     return mapped_dictionary
 
-mapped_dictionary = create_mapped_dict()
+create_mapped_dict()
 
 
 # SECTION 4: NOT PART OF THE PROGRAM, JUST FOR INFO--------------------
