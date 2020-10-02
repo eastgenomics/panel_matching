@@ -64,26 +64,28 @@ def create_mapped_dict():
                 break
         
             #Identify differences between gemini and panelapp panels
-            shared_genes = []
-            gemini_only = []
-            panelapp_only = []
+            shared_genes = 0
+            panelapp_only = 0
+            gemini_only = 0
+            gemini_only_genes = []
 
             for gene in gemini_genes:
                 if gene in panelapp_genes:
-                    shared_genes.append(gene)
+                    shared_genes += 1
                 elif gene not in panelapp_genes:
-                    gemini_only.append(gene)
+                    gemini_only += 1
+                    gemini_only_genes.append(gene)
             for gene in panelapp_genes:
                 if gene not in gemini_genes:
-                    panelapp_only.append(gene)
+                    panelapp_only += 1
         
             #If the panelapp panel doesn't cover any genes in gemini panel, skip to the next panelapp panel
-            if gemini_only == gemini_genes:
+            if gemini_only_genes == gemini_genes:
                 continue
 
             #D: Calculate values for ranking
-            pc_coverage = len(shared_genes) / len(gemini_genes) #percentage of gemini genes covered by this panel
-            pc_surplus = len(panelapp_only) / len(panelapp_genes) #surplus genes (those not in gemini panel) as a percentage of panelapp panel length
+            pc_coverage = shared_genes / gemini_genes #percentage of gemini genes covered by this panel
+            pc_surplus = panelapp_only / panelapp_genes #surplus genes (those not in gemini panel) as a percentage of panelapp panel length
             rank_values[panelapp_panel] = [pc_coverage, pc_surplus]
         
         #If a panel was an exact match, that's the best match.
@@ -98,20 +100,20 @@ def create_mapped_dict():
                 list_of_ranks[i] = []
                 if i == 1:
                     for panel, values in rank_values.items():
-                        if values[0] == 1 and 0 <= values[1] <= 0.5: #Rank 1 - panels which cover 100% of gemini genes
+                        if values[0] == 1 and 0 <= values[1] <= 0.5: #Rank 1 - panels which cover 100% of gemini genes and contain <=50% surplus genes
                             if not list_of_ranks[1]:
                                 list_of_ranks[1] = [panel, values[1]]
                             elif values[1] < list_of_ranks[1][1]:
                                 list_of_ranks[1] = [panel, values[1]]
                 else:
                     for panel, values in rank_values.items():
-                        if (1-(0.1 * (i-1))) <= values[0] < (1-(0.1 * (i-2))) and 0 <= values[1] <= 0.5: #Ranks 2-6 - range of (% gemini genes covered) decreases by 10% with each rank
+                        if (1-(0.1 * (i-1))) <= values[0] < (1-(0.1 * (i-2))) and 0 <= values[1] <= 0.5: #Ranks 2-6 - bounds of (% gemini genes covered) decrease by 10% with each rank
                             if not list_of_ranks[i]:
                                 list_of_ranks[i] = [panel, values[1]]
                             elif values[1] < list_of_ranks[i][1]:
                                 list_of_ranks[i] = [panel, values[1]]                    
            
-                if list_of_ranks[i]: #break the ranking loop at the highest occupied rank
+                if list_of_ranks[i]: #break the ranking loop at the highest occupied rank (most gemini genes covered with <=50% surplus genes)
                     best_match = list_of_ranks[i][0]
                     mapped_dictionary[gemini_panel] = best_match
     
@@ -130,38 +132,3 @@ def create_mapped_dict():
     return mapped_dictionary
 
 create_mapped_dict()
-
-
-# SECTION 4: NOT PART OF THE PROGRAM, JUST FOR INFO--------------------
-# What sort of panel lengths are we dealing with?
-def gemini_info():
-    gen_count = len(gemini_dictionary.keys())
-    gen_max = 0
-    gen_min = 600
-    gen_ave_sum = 0
-    for value in gemini_dictionary.values():
-        gen_ave_sum += len(value)
-        if len(value) == 0:
-            continue
-        elif len(value) > gen_max:
-            gen_max = len(value)
-        elif len(value) < gen_min:
-            gen_min = len(value)
-    gen_ave = gen_ave_sum / gen_count
-    #print('There are {gen_count} Gemini panels. The biggest has {gen_max} genes, the smallest has {gen_min} genes, and the average size is {gen_ave}'.format(gen_count=gen_count, gen_max = gen_max, gen_min = gen_min, gen_ave = gen_ave))
-
-def panelapp_info():
-    pan_count = len(panelapp_dictionary.keys())
-    pan_max = 0
-    pan_min = 600
-    pan_ave_sum = 0
-    for value in panelapp_dictionary.values():
-        pan_ave_sum += len(value)
-        if len(value) == 0:
-            continue
-        elif len(value) > pan_max:
-            pan_max = len(value)
-        elif len(value) < pan_min:
-            pan_min = len(value)
-    pan_ave = pan_ave_sum / pan_count
-    #print('There are {pan_count} PanelApp panels. The biggest has {pan_max} genes, the smallest has {pan_min} genes, and the average size is {pan_ave}'.format(pan_count=pan_count, pan_max = pan_max, pan_min = pan_min, pan_ave = pan_ave))
