@@ -2,7 +2,7 @@
 
 # STEP 1: Format Gemini panel information into a gemini_dictionary containing {‘panel name’ : [‘gene symbols’]}, for all panels in Gemini
 import os
-gemini_path = os.path.join('/home/Jay/projects/panel_matching/', 'gemini_panels_200522.txt')
+gemini_path = os.path.join('c:/Users/Jay/Documents/Projects/panel_matching/', 'gemini_panels_200522.txt')
 with open(gemini_path) as gemini_file:
     gemini_panels = gemini_file.readlines()
     gemini_dictionary = {}
@@ -22,7 +22,7 @@ with open(gemini_path) as gemini_file:
 # STEP 2: Format PanelApp panel information into a panelapp_dictionary containing {‘panel name’ : [‘gene symbols’]}, for all panels in PanelApp
 # OPTION 2 (for when I have a better idea what on earth I'm doing) - access PanelApp panels and gene lists using the API.
 panelapp_dictionary = {}
-panelapp_path = '/home/Jay/projects/panel_matching/200925_panelapp_dump'
+panelapp_path = 'c:/Users/Jay/Documents/Projects/panel_matching/200925_panelapp_dump'
 for filename in os.listdir(panelapp_path):
     filepath = os.path.join(panelapp_path, filename)
     with open(filepath) as single_panel_object:
@@ -56,12 +56,12 @@ for gemini_panel, gemini_genes in gemini_dictionary.items():
     #Loop part 1: Initialise the output variables
     exact_matches = [] #panelapp panels which exactly match gemini panel
     bigger_panels = {} #panelapp panels which contain the gemini panel {'panel name':[list of genes in panel, number of surplus genes]}
-    best_bigger_panel = [] #value from the bigger_panels entry with the smallest number of surplus genes
+    shortest_bigger_panel = [] #value from the bigger_panels entry with the smallest number of surplus genes
     subpanels = [] #panelapp panels which are subpanels of the gemini panel
 
     for panelapp_panel, panelapp_genes in panelapp_dictionary.items():
         #Sub-loop part 1: The easy cases - no overlap, exact overlap, or one list is contained within the other
-        #S1a: If the panelapp panel doesn't contain any of the genes in the gemini panel, break the sub-loop
+        #S1a: No genes from the gemini panel are in the panelapp panel so there is no point looking at it further
         missing_genes = []
         for gene in gemini_genes:
             if gene not in panelapp_genes:
@@ -69,22 +69,23 @@ for gemini_panel, gemini_genes in gemini_dictionary.items():
         if missing_genes == gemini_genes:
             continue
         
-        #S1b: If the panelapp panel is identical to the gemini panel, add it to exact_matches and break the sub-loop
+        #S1b: The panelapp panel is identical to the gemini panel, which is the ideal outcome
         elif panelapp_genes == gemini_genes:
             exact_matches.append(panelapp_panel)
             continue
         
-        #S1c: If the panelapp panel contains all the genes in the gemini panel, add it to bigger_panels and break the sub-loop
+        #S1c: The panelapp panel contains all the genes in the gemini panel (plus some others) - this is a pretty good outcome depending on how many surplus genes there are
         elif gemini_genes in panelapp_genes:
-            bigger_panels[panelapp_panel] = [panelapp_genes, len(panelapp_genes - len(gemini_genes))
+            bigger_panels[panelapp_panel] = [panelapp_genes, len(panelapp_genes - len(gemini_genes))]
             continue
         
-        #S1d: If the panelapp panel is a subpanel of the gemini panel, add it to subpanels (but DON'T break the sub-loop)
+        #Sub-loop part 2: Solutions which require multiple panelapp panels
+        #The panelapp panel is a subpanel of the gemini panel - THIS NEEDS MORE WORK TO STICK SUBSETS TOGETHER
         elif panelapp_genes in gemini_genes:
             subpanels.append(panelapp_panel)
 
-        #Sub-loop part 2: Working on solutions where the lists aren't identical and one doesn't contain the other
-        #List the genes in (a) both panels (b) gemini panel only (c) panelapp panel only
+        #Sub-loop part 3: Solutions which require some sort of subjective optimisation
+        #Start by identifying which genes are in (a) both panels (b) gemini panel only (c) panelapp panel only
         shared = []
         gem_only = []
         pan_only = []
@@ -97,26 +98,40 @@ for gemini_panel, gemini_genes in gemini_dictionary.items():
             if gene not in gemini_genes:
                 pan_only.append(gene)
 
-    #Loop part 2: 
-    #If bigger_panels isn't empty, find the smallest of these panels. That's the best bigger panel.
-    if len(bigger_panels.keys()) > 0:
+    #Loop part 2: Generate an output for the current gemini panel
+    #If there is an exact match, that's the best match
+    panel_answer = ''
+    if len(exact_matches) > 0:
+        panel_answer = 'There are {match_count} PanelApp panels that are exact matches for this panel, which are: {match_list}.'.format(match_count=len(exact_matches), match_list=exact_matches)
+
+    #If there are any panels which contain the current gemini panel, the shortest of those is the best match
+    elif len(bigger_panels.keys()) > 0:
         for panel, surplus_genes in bigger_panels.items():
             if len(best_bigger_panel) == 0:
-                best_bigger_panel = [panel, len(surplus_genes)]
-            elif len(surplus_genes) < best_bigger_panel[1]:
-                best_bigger_panel = [panel, len(surplus_genes)]
-    else:
-        best_bigger_panel = ['N/A', 'N/A']
+                shortest_bigger_panel = [panel, surplus_genes]
+            elif surplus_genes < shortest_bigger_panel[1]:
+                shortest_bigger_panel = [panel, surplus_genes]
+        panel_answer = 'The shortest PanelApp panel which covers all the genes in this panel is {bigger_panel}, which also contains {bigger_surplus} other genes.'.format(bigger_panel=shortest_bigger_panel[0], bigger_surplus = shortest_bigger_panel[1])
 
-    #Loop part 3: Generate an output for the current gemini panel
-    panel_answer = 'There are {match_count} PanelApp panels which are exact matches for this panel: {match_list}.'\
-        'The shortest PanelApp panel which covers all the genes in this panel is {bigger_panel}, which also contains {bigger_surplus} other genes.'\
-        '{subpanel_count} PanelApp panels are subsets of this panel: {subpanel_list}. A combination of these may cover all the required genes.'\
-        .format(match_count=len(exact_matches), match_list=exact_matches, bigger=best_bigger_panel[0], bigger_surplus = best_bigger_panel[1], subpanel_count=len(subpanels), subpanel_list=subpanels)
+    #If there are any panels which are subpanels of the gemini panel:
+    elif len(subpanels) > 0:
+        panel_answer = '{subpanel_count} PanelApp panels are subsets of this panel: {subpanel_list}. A combination of these may cover all the required genes.'.format(subpanel_count=len(subpanels), subpanel_list=subpanels)
+
+    #If there aren't any exact matches, panels which contain all the required genes, or subpanels...things get trickier.
+    #WORK IN PROGRESS
+    else:
+        panel_answer = 'I haven\'t figured out how to respond to this case yet'        
 
     mapped_dictionary[gemini_panel] = panel_answer
 
-print('To access the information for a particular Gemini panel, enter: mapped_dictionary[\'panel name\']')
+search_item = input('Which Gemini panel are you interested in? ')
+print(mapped_dictionary[search_item])
+
+
+
+
+
+
 
 
 # NOT PART OF THE PROGRAM, JUST FOR INFO--------------------
