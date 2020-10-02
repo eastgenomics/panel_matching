@@ -1,6 +1,6 @@
 #!usr/bin/env/ python
 
-#SECTION 1: Format Gemini panel information into a gemini_dictionary containing {‘panel name’ : [‘gene symbols’]}, for all panels in Gemini
+#SECTION 1: Format Gemini panel information into a gemini_dictionary containing {‘panel name’ : [‘gene symbols’]}, for all Gemini panels
 def create_gemini_dict():
     import os
     gemini_path = os.path.join('c:/users/Jay/documents/projects/panel_matching/', 'gemini_panels_200522.txt') #On PC
@@ -17,9 +17,10 @@ def create_gemini_dict():
                 gemini_dictionary[entry[0]].append(gene_symbol)
             elif gene_symbol != '':
                 gemini_dictionary[entry[0]] = [gene_symbol]
+    return gemini_dictionary
 
-#SECTION 2: Format PanelApp panel information into a panelapp_dictionary containing {‘panel name’ : [‘gene symbols’]}, for all panels in PanelApp
-#OPTION 2 (for when I have a better idea what I'm doing) - access PanelApp panels and gene lists using the API.
+#SECTION 2: Format PanelApp panel information into a panelapp_dictionary containing {‘panel name’ : [‘gene symbols’]}, for all PanelApp panels
+#Option for when I have a better idea what I'm doing - access PanelApp panels and gene lists using the API
 def create_panelapp_dict():
     import os
     panelapp_dictionary = {}
@@ -34,6 +35,7 @@ def create_panelapp_dict():
             gene_symbols = []
             gene_symbols = [entry[-1].strip() for entry in lst_of_rows if entry[-1].strip() != '']
             panelapp_dictionary[filename[:-4]] = gene_symbols
+    return panelapp_dictionary
 
 #SECTION 3: For each gemini panel, which panelapp panel (or combination thereof) best covers those genes?
 #What are the possible solutions?
@@ -49,15 +51,18 @@ def create_panelapp_dict():
 #   7. There are no panelapp panels which cover any genes in the gemini panel
 
 def create_mapped_dict():
-    mapped_dictionary = {} #takes form {'gemini panel name':'best panelapp match'}
+    gemini_dictionary = create_gemini_dict()
+    panelapp_dictionary = create_panelapp_dict()
+    
+    mapped_dictionary = {} #{'gemini panel name':'best panelapp match'}
     for gemini_panel, gemini_genes in gemini_dictionary.items():
-        exact_matches = [] #panelapp panels which exactly match gemini panel
-        bigger_panels = {} #panelapp panels which contain the gemini panel {'panel name':[list of genes in panel, number surplus genes]}
-        shortest_bigger_panel = [] #value from the bigger_panels entry with the smallest number of surplus genes
-        subpanels = [] #panelapp panels which are subpanels of the gemini panel
+        exact_matches = [] #panelapps which exactly match gemini
+        bigger_panels = {} #panelapps which cover all gemini genes plus others {'panel name':[list of genes in panel, number surplus genes]}
+        shortest_bigger_panel = [] #['panel name', surplus]
+        subpanels = [] #panelapps which are subpanels of gemini
 
         for panelapp_panel, panelapp_genes in panelapp_dictionary.items():
-            #A: The panelapp panel is identical to the gemini panel. Gets appended to exact_matches for that gemini panel.
+            #A: Panelapp panel identical to gemini panel. Gets appended to exact_matches.
             if panelapp_genes == gemini_genes:
                 exact_matches.append(panelapp_panel)
                 continue
@@ -75,25 +80,28 @@ def create_mapped_dict():
                 if gene not in gemini_genes:
                     panelapp_only.append(gene)
         
-            #B: The panelapp panel doesn't cover any genes in the gemini panel. Move to next panelapp panel.
+            #B: Panelapp panel doesn't cover any genes in gemini panel. Move to next panelapp panel.
             if gemini_only == gemini_genes:
                 continue
         
-            #C: The panelapp panel covers all the genes in the gemini panel, plus some others. Append panelapp panel name and number surplus genes to a dictionary for that gemini panel.
+            #C: Panelapp panel covers all genes in gemini panel plus some others. Append [panelapp panel name, number surplus genes] to dictionary for gemini panel.
             elif gemini_genes in panelapp_genes:
                 surplus = len(panelapp_genes) - len(gemini_genes)
                 bigger_panels[panelapp_panel] = [panelapp_genes, surplus]
                 continue
         
-            #D: The panelapp panel is a subpanel of the gemini panel. DO SOMETHING TO COMBINE SUBSETS
+            #D: Panelapp panel is subpanel of gemini panel. Add to subpanels list but don't move on yet.
             elif panelapp_genes in gemini_genes:
                 subpanels.append(panelapp_panel)
 
-        #MAIN LOOP: Generates an output for the current gemini panel
-        #If there is an exact match, that's the best match.
+            #IF NONE OF THE ABOVE, RANK PANELS SOMEHOW 
+
+        #Generate output for the current gemini panel
         best_match = ''
+        
+        #If there is an exact match, that's the best match.
         if exact_matches:
-            best_match = 'PanelApp panels that exactly match this panel: {matches}.'.format(matches=exact_matches)
+            best_match = exact_matches
 
         #If there are any panels which cover all genes in the current gemini panel, the shortest of those is the best match
         elif bigger_panels:
@@ -102,28 +110,28 @@ def create_mapped_dict():
                     shortest_bigger_panel = [panel, surplus]
                 elif surplus < shortest_bigger_panel[1]:
                     shortest_bigger_panel = [panel, surplus]
-            best_match = 'The PanelApp panel {panel} covers all of this panel\'s genes, plus {surplus} others.'.format(panel=shortest_bigger_panel[0], surplus = shortest_bigger_panel[1])
+            best_match = '{panel} covers the same genes plus {surplus} others'.format(panel=shortest_bigger_panel[0], surplus = shortest_bigger_panel[1])
 
-        #If there are any panels which are subpanels of the gemini panel:
-        elif subpanels:
-            best_match = 'PanelApp panels that are subsets of this panel: {subpanels}. A combination of these may cover all the required genes.'.format(subpanels=subpanels)
+        #If there are any panels which are subpanels of the gemini panel
+            #FIGURE OUT WHAT TO DO WITH SUBPANELS
 
-        #If there aren't any exact matches, panels which contain all the required genes, or subpanels...things get trickier.
-        #find some way of ranking panels?????     
+        #If there are ranked panels
+            #FIGURE OUT WHAT TO DO WITH RANKED PANELS
+    
 
         mapped_dictionary[gemini_panel] = best_match
-        #---END FUNCTION---
+    
+    return mapped_dictionary
+    #---END FUNCTION---
 
-#create_gemini_dict()
-#create_panelapp_dict()
-#create_mapped_dict()
+mapped_dictionary = create_mapped_dict()
 
-#Test: print all mapped_dictionary contents
-#for key, value in mapped_dictionary.items():
-    #if value:
-        #print(key, value)
+#Test 1: print all mapped_dictionary contents
+for key, value in mapped_dictionary.items():
+    if value:
+        print(key, value)
 
-#Test: Search in terminal for match to specific panel
+#Test 2: Search in terminal for match to specific panel
 #search_item = input('Which Gemini panel are you interested in? ')
 #print(mapped_dictionary[search_item])
 
@@ -136,32 +144,34 @@ def create_mapped_dict():
 
 # SECTION 4: NOT PART OF THE PROGRAM, JUST FOR INFO--------------------
 # What sort of panel lengths are we dealing with?
-gen_count = len(gemini_dictionary.keys())
-gen_max = 0
-gen_min = 600
-gen_ave_sum = 0
-for value in gemini_dictionary.values():
-    gen_ave_sum += len(value)
-    if len(value) == 0:
-        continue
-    elif len(value) > gen_max:
-        gen_max = len(value)
-    elif len(value) < gen_min:
-        gen_min = len(value)
-gen_ave = gen_ave_sum / gen_count
-#print('There are {gen_count} Gemini panels. The biggest has {gen_max} genes, the smallest has {gen_min} genes, and the average size is {gen_ave}'.format(gen_count=gen_count, gen_max = gen_max, gen_min = gen_min, gen_ave = gen_ave))
+def gemini_info():
+    gen_count = len(gemini_dictionary.keys())
+    gen_max = 0
+    gen_min = 600
+    gen_ave_sum = 0
+    for value in gemini_dictionary.values():
+        gen_ave_sum += len(value)
+        if len(value) == 0:
+            continue
+        elif len(value) > gen_max:
+            gen_max = len(value)
+        elif len(value) < gen_min:
+            gen_min = len(value)
+    gen_ave = gen_ave_sum / gen_count
+    #print('There are {gen_count} Gemini panels. The biggest has {gen_max} genes, the smallest has {gen_min} genes, and the average size is {gen_ave}'.format(gen_count=gen_count, gen_max = gen_max, gen_min = gen_min, gen_ave = gen_ave))
 
-pan_count = len(panelapp_dictionary.keys())
-pan_max = 0
-pan_min = 600
-pan_ave_sum = 0
-for value in panelapp_dictionary.values():
-    pan_ave_sum += len(value)
-    if len(value) == 0:
-        continue
-    elif len(value) > pan_max:
-        pan_max = len(value)
-    elif len(value) < pan_min:
-        pan_min = len(value)
-pan_ave = pan_ave_sum / pan_count
-#print('There are {pan_count} PanelApp panels. The biggest has {pan_max} genes, the smallest has {pan_min} genes, and the average size is {pan_ave}'.format(pan_count=pan_count, pan_max = pan_max, pan_min = pan_min, pan_ave = pan_ave))
+def panelapp_info():
+    pan_count = len(panelapp_dictionary.keys())
+    pan_max = 0
+    pan_min = 600
+    pan_ave_sum = 0
+    for value in panelapp_dictionary.values():
+        pan_ave_sum += len(value)
+        if len(value) == 0:
+            continue
+        elif len(value) > pan_max:
+            pan_max = len(value)
+        elif len(value) < pan_min:
+            pan_min = len(value)
+    pan_ave = pan_ave_sum / pan_count
+    #print('There are {pan_count} PanelApp panels. The biggest has {pan_max} genes, the smallest has {pan_min} genes, and the average size is {pan_ave}'.format(pan_count=pan_count, pan_max = pan_max, pan_min = pan_min, pan_ave = pan_ave))
