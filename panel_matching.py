@@ -94,8 +94,14 @@ def create_mapped_dict():
             elif panelapp_genes in gemini_genes:
                 subpanels.append(panelapp_panel)
 
-            #IF NONE OF THE ABOVE, RANK PANELS SOMEHOW 
+            #E: If none of the above apply, we have to rank the panels somehow.
+            #This is essentially an optimisation problem with three parts:
+            #   maximise (shared_genes)
+            #   minimise both (gem_only) and (pan_only)
 
+
+
+            #EXIT SUB-LOOP
         #Generate output for the current gemini panel
         best_match = ''
         
@@ -120,9 +126,9 @@ def create_mapped_dict():
     
 
         mapped_dictionary[gemini_panel] = best_match
-    
+        #EXIT MAIN LOOP
     return mapped_dictionary
-    #---END FUNCTION---
+    #EXIT FUNCTION
 
 mapped_dictionary = create_mapped_dict()
 
