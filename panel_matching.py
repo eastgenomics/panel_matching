@@ -13,14 +13,13 @@ def create_gemini_dict():
                 continue
             entry = row.split('\t')
             gene_symbol = entry[2].strip()
-            if entry[0] in gemini_dictionary.keys() and gene_symbol != '':
+            if (entry[0] in gemini_dictionary.keys()) and (gene_symbol not in gemini_dictionary[entry[0]]) and (gene_symbol != ''):
                 gemini_dictionary[entry[0]].append(gene_symbol)
             elif gene_symbol != '':
                 gemini_dictionary[entry[0]] = [gene_symbol]
     return gemini_dictionary
 
 #SECTION 2: Format PanelApp panel information into a panelapp_dictionary containing {‘panel name’ : [‘gene symbols’]}, for all PanelApp panels
-#Option for when I have a better idea what I'm doing - access PanelApp panels and gene lists using the API
 def create_panelapp_dict():
     import os
     panelapp_dictionary = {}
@@ -33,102 +32,64 @@ def create_panelapp_dict():
             lst_of_rows = []
             lst_of_rows = [row.split('\t') for row in single_panel]
             gene_symbols = []
-            gene_symbols = [entry[-1].strip() for entry in lst_of_rows if entry[-1].strip() != '']
+            for row in lst_of_rows:
+                if (row[-1] != '') and (row[-1].strip() not in gene_symbols):
+                    gene_symbols.append(row[-1].strip())
             panelapp_dictionary[filename[:-4]] = gene_symbols
     return panelapp_dictionary
 
 #SECTION 3: For each Gemini panel, which PanelApp panel best covers those genes?
-#The ideal solution is that a PanelApp panel exactly matches the Gemini panel. Unfortunately, this is only true for 3 Gemini panels.
-
-#The approach taken here is to determine, for each Gemini panel and each PanelApp panel:
-#   (a) the % genes in the Gemini panel which the PanelApp panel covers (ideally high)
-#   (b) the % genes in the PanelApp panel which are not in the Gemini panel (surplus genes, ideally low)
-
-#The script performs 2 rankings. Firstly, panels are split into ranks to select for decreasingly high values of (a). Secondly, each rank is ordered by values of (b).
-#The best match is the panel from the highest rank with the lowest value for (b).
-
 def create_mapped_dict():
     import csv
+    import operator
     gemini_dictionary = create_gemini_dict()
     panelapp_dictionary = create_panelapp_dict()
-    
+
     mapped_dictionary = {}
     for gemini_panel, gemini_genes in gemini_dictionary.items():
-        best_match = ''
-        rank_values = {}
-
+        ratio_list = []
         for panelapp_panel, panelapp_genes in panelapp_dictionary.items():
-            #If the panelapp panel is identical to gemini panel (best-case scenario), save as best match and break out of sub-loop
-            if panelapp_genes == gemini_genes:
-                best_match = panelapp_panel
-                break
-        
             #Identify differences between gemini and panelapp panels
-            shared_genes = 0
-            panelapp_only = 0
-            gemini_only = 0
-            gemini_only_genes = []
-
-            for gene in gemini_genes:
-                if gene in panelapp_genes:
-                    shared_genes += 1
-                elif gene not in panelapp_genes:
-                    gemini_only += 1
-                    gemini_only_genes.append(gene)
-            for gene in panelapp_genes:
-                if gene not in gemini_genes:
-                    panelapp_only += 1
+            shared_genes = set(gemini_genes).intersection(set(panelapp_genes))
+            shared_count = len(shared_genes)
+            panelapp_only = len(panelapp_genes) - shared_count
+            gemini_only = len(gemini_genes) - shared_count
         
             #If the panelapp panel doesn't cover any genes in gemini panel, skip to the next panelapp panel
-            if gemini_only_genes == gemini_genes:
+            if not shared_genes:
                 continue
 
-            #D: Calculate values for ranking
-            pc_coverage = shared_genes / gemini_genes #percentage of gemini genes covered by this panel
-            pc_surplus = panelapp_only / panelapp_genes #surplus genes (those not in gemini panel) as a percentage of panelapp panel length
-            rank_values[panelapp_panel] = [pc_coverage, pc_surplus]
-        
-        #If a panel was an exact match, that's the best match.
-        if best_match:
-            mapped_dictionary[gemini_panel] = best_match
-            continue
+            #Calculate value for ranking:
+            pc_coverage = shared_count / len(gemini_genes)  #proportion of genes in gemini panel covered by panelapp panel - ideally high
+            pc_missing = gemini_only / len(gemini_genes)    #proportion of genes in gemini panel not covered by panelapp panel - ideally low
+            pc_surplus = panelapp_only / len(panelapp_genes)  #proportion of panelapp panel which is surplus - ideally low
 
-        #Otherwise, panels are ranked for the highest % gemini genes covered AND the fewest surplus.
-        else:
-            list_of_ranks = {}
-            for i in range(6):
-                list_of_ranks[i] = []
-                if i == 1:
-                    for panel, values in rank_values.items():
-                        if values[0] == 1 and 0 <= values[1] <= 0.5: #Rank 1 - panels which cover 100% of gemini genes and contain <=50% surplus genes
-                            if not list_of_ranks[1]:
-                                list_of_ranks[1] = [panel, values[1]]
-                            elif values[1] < list_of_ranks[1][1]:
-                                list_of_ranks[1] = [panel, values[1]]
-                else:
-                    for panel, values in rank_values.items():
-                        if (1-(0.1 * (i-1))) <= values[0] < (1-(0.1 * (i-2))) and 0 <= values[1] <= 0.5: #Ranks 2-6 - bounds of (% gemini genes covered) decrease by 10% with each rank
-                            if not list_of_ranks[i]:
-                                list_of_ranks[i] = [panel, values[1]]
-                            elif values[1] < list_of_ranks[i][1]:
-                                list_of_ranks[i] = [panel, values[1]]                    
-           
-                if list_of_ranks[i]: #break the ranking loop at the highest occupied rank (most gemini genes covered with <=50% surplus genes)
-                    best_match = list_of_ranks[i][0]
-                    mapped_dictionary[gemini_panel] = best_match
+            if pc_surplus == 0 and pc_missing == 0:
+                rank_value = 1
+                ratio_list.append([panelapp_panel, pc_coverage, pc_missing, pc_surplus, rank_value])
+            else:
+                rank_value = pc_coverage / (pc_surplus + pc_missing)
+                ratio_list.append([panelapp_panel, pc_coverage, pc_missing, pc_surplus, rank_value])
+
+        #Output is the 5 panelapp panels with the highest rank values for this gemini panel
+        sort_by_ratio = sorted(ratio_list, key=operator.itemgetter(-1), reverse = True)
+        top_five = sort_by_ratio[:5]
+        mapped_dictionary[gemini_panel] = top_five
     
-    #Create a csv file showing the mapping of panelapp to gemini panels
-    with open('mapping_output.csv','w') as file_object:
+    #Create a csv file showing top 5 panelapp panels for each gemini panel
+    with open('mapping_output.csv','w', newline = '') as file_object:
         mapping_output = []
         for key, value in mapped_dictionary.items():
-            row = {'Gemini panel':key, 'Gemini panel genes':gemini_dictionary[key], 'PanelApp panel':value, 'PanelApp panel genes':panelapp_dictionary[value]}
-            mapping_output.append(row)
-        fields = ['Gemini panel', 'Gemini panel genes', 'PanelApp panel', 'PanelApp panel genes']
-        output = csv.DictWriter(file_object, fieldnames = fields)
-        output.writeheader()
+            mapping_output.append([key, gemini_dictionary[key]])
+            mapping_output.append(['PanelApp panel','% Coverage', '%Missing', '% Surplus','Ranked Value'])
+            for panel in value:
+                row = (panel[0], panel[1], panel[2], panel[3], panel[4], panelapp_dictionary[panel[0]])
+                mapping_output.append(row)
+            mapping_output.append('\n')
+        output = csv.writer(file_object)
         for entry in mapping_output:
             output.writerow(entry)
-    
+
     return mapped_dictionary
 
 create_mapped_dict()
