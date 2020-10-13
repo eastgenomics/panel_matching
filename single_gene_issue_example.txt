@@ -1,0 +1,14 @@
+In-house panel for Aarskog-Scott syndrome contains only FGD1
+
+List of PanelApp panels containing FGD1 and their total lengths:
+
+Clefting_2.2 					147
+DDG2P2.2					1193
+Fetal anomalies_1.92				974
+Hypotonic infant_9.41				1604
+Intellectual disability_3.2			1123
+IUGR and IGF abnormalities_1.30			95
+Limb disorders_2.2				139
+Paediatric disorders_14.43			2051
+Severe Paediatric Disorders_1.11		2599
+White matter disorders childhood onset_6.20	1517

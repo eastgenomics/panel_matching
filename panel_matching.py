@@ -64,7 +64,7 @@ def create_mapped_dict():
             pc_missing = gemini_only / len(gemini_genes)    #proportion of genes in gemini panel not covered by panelapp panel - ideally low
             pc_surplus = panelapp_only / len(panelapp_genes)  #proportion of panelapp panel which is surplus - ideally low
 
-            if pc_surplus == 0 and pc_missing == 0:
+            if pc_surplus == 0 and pc_missing == 0: #optimal case where a panelapp panel exactly matches the gemini panel
                 rank_value = 1
                 ratio_list.append([panelapp_panel, pc_coverage, pc_missing, pc_surplus, rank_value])
             else:
