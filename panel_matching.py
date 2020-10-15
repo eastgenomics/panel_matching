@@ -9,14 +9,16 @@ def create_gemini_dict():
         gemini_panels = gemini_file.readlines()
         gemini_dictionary = {}
         for row in gemini_panels:
-            if row[0:4] == 'GEL_':
+            if row[0:4] == 'GEL_': #omit GEL panels
                 continue
             entry = row.split('\t')
             gene_symbol = entry[2].strip()
-            if (entry[0] in gemini_dictionary.keys()) and (gene_symbol not in gemini_dictionary[entry[0]]) and (gene_symbol != ''):
-                gemini_dictionary[entry[0]].append(gene_symbol)
-            elif gene_symbol != '':
-                gemini_dictionary[entry[0]] = [gene_symbol]
+            if gene_symbol: #omit rows without a gene symbol
+                if entry[0] not in gemini_dictionary.keys(): #if the row's panel isn't already in the dictionary, create one with the row's gene
+                    gemini_dictionary[entry[0]] = [gene_symbol]
+                elif (entry[0] in gemini_dictionary.keys()) and (gene_symbol not in gemini_dictionary[entry[0]]): #if the row's panel is in the dictionary but doesn't contain the row's gene, append the gene to the panel
+                    gemini_dictionary[entry[0]].append(gene_symbol)
+                gemini_dictionary[entry[0]].sort() #sort the genes in each panel alphabetically
     return gemini_dictionary
 
 #SECTION 2: Format PanelApp panel information into a panelapp_dictionary containing {‘panel name’ : [‘gene symbols’]}, for all PanelApp panels
@@ -35,7 +37,7 @@ def create_panelapp_dict():
             for row in lst_of_rows:
                 if (row[-1] != '') and (row[-1].strip() not in gene_symbols):
                     gene_symbols.append(row[-1].strip())
-            panelapp_dictionary[filename[:-4]] = gene_symbols
+            panelapp_dictionary[filename[:-4]] = sorted(gene_symbols)
     return panelapp_dictionary
 
 #SECTION 3: For each Gemini panel, which PanelApp panel best covers those genes?
@@ -44,7 +46,6 @@ def create_mapped_dict():
     import operator
     gemini_dictionary = create_gemini_dict()
     panelapp_dictionary = create_panelapp_dict()
-
     mapped_dictionary = {}
     for gemini_panel, gemini_genes in gemini_dictionary.items():
         ratio_list = []
@@ -65,7 +66,7 @@ def create_mapped_dict():
             pc_surplus = panelapp_only / len(panelapp_genes)  #proportion of panelapp panel which is surplus - ideally low
 
             if pc_surplus == 0 and pc_missing == 0: #optimal case where a panelapp panel exactly matches the gemini panel
-                rank_value = 1
+                rank_value = 50
                 ratio_list.append([panelapp_panel, pc_coverage, pc_missing, pc_surplus, rank_value])
             else:
                 rank_value = pc_coverage / (pc_surplus + pc_missing)
