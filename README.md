@@ -21,6 +21,14 @@ This value is calculated for each PanelApp panel compared to each in-house panel
 3. % surplus: proportion of the PanelApp panel which is surplus, i.e. genes not in the in-house panel
 4. ranked value: calculated as % coverage / (% missing + % surplus)
 
+The case where 'missing genes' and 'surplus genes' are both equal to zero would normally result in a ZeroDivisionError when calculating the value for ranking. However, this actually indicates a case where the PanelApp panel is identical to the in-house panel, which is the optimal solution. A conditional statement has therefore been included to detect any instances of this case and set the ranking value to an arbitrarily high number, so that the relevant PanelApp panel is identified as the optimal match.
+
+CONTROLS AND OUTPUT CHECK
+
+Known exact matches act as good controls for checking output. Three in-house panels have corresponding PanelApp panels which are exact matches: 'CFTR single gene', 'Charge syndrome' and 'Ovarian Cancer_ICE'; which correspond to the PanelApp panels 'Additional findings reproductive carrier status_0.5', 'CHARGE syndrome_0.11' and 'Inherited ovarian cancer (without breast cancer)_2.2'.
+
+Some in-house panels are used more frequently than others, and so accurate matching is potentially more important for these. The second tab of the 'output_final.xlsx' file shows the matches generated for the 10 most frequently used in-house panels. For each of these, matching identifies a PanelApp panel whose name reflects that of the in-house panel, and which for the most part appears to represent the panel's genes well. The matching for Epileptic Encephalopathy panels 1 and 2, where the matched panels cover practically all the in-house genes but with a large surplus, may indicate unavoidable differences in the panels used for a specific phenotype.
+
 LIMITATIONS
 
-There are some in-house panels, particularly very short panels of only a few genes, where the solution is less than ideal. For example, the in-house panel for Aarskog-Scott syndrome only contains one gene, which is FGD1. There are 10 PanelApp panels which cover FGD1, but the shortest of these (IUGR and IGF abnormalities_1.30) is 95 genes long.
+There are some in-house panels, particularly very short panels of only a few genes, where the solution is less than ideal. For example, the in-house panel for Aarskog-Scott syndrome only contains one gene, which is FGD1. There are 10 PanelApp panels which cover FGD1, but the shortest of these (IUGR and IGF abnormalities_1.30) is 95 genes long. Whilst the matching algorithm is able to identify the best match, it cannot recitfy the underlying problem that there is no good match for this panel.
